@@ -1,11 +1,7 @@
 ### import libraries
-import re
-import os
-import json
-from pyspark import SparkContext, SQLContext
 from pyspark.sql import SparkSession, Row
-from pyspark.sql.types import StructType, StructField, StringType, IntegerType, LongType, ArrayType
-from pyspark.sql.functions import explode, map_keys, col, first, get_json_object, array, to_json, struct, split, regexp_replace, trim
+from pyspark.sql.types import StructType, StructField, StringType
+from pyspark.sql.functions import col
 
 
 ### create spark session
@@ -17,17 +13,17 @@ spark = SparkSession.builder \
 
 
 ### set paths
-root_path = '/Users/parkjisook/Desktop/yeardream/medistream/js/json'
-json_root_path = f'{root_path}/naverplace_meta'
-save_root_path = f'{root_path}/output'
-text_root_path = f'{root_path}/test.txt'
+root_path = '/Users/b06/Desktop/yeardream/medi-05'
+json_root_path = f'{root_path}/data/naverplace_meta'
+save_root_path = f'{root_path}/spark-scala-project/output/pyspark'
+text_root_path = f'{root_path}/spark-scala-project/test.txt'
 
 
 ### read data
 def read_text():
     with open(text_root_path, 'r') as t: 
-        l = t.readlines()        
-    n = l.pop(0).strip()    
+        l = t.readlines()                
+    n = l.pop(0).strip()
     with open(text_root_path, 'w') as t: 
         t.writelines(l)
     return n
@@ -50,7 +46,7 @@ hospital_bases = [c for c in columns if "HospitalBase" in c]
 df_schema = StructType([
     StructField('id', StringType(), True),
     StructField('name', StringType(), True),
-    StructField('keyword', StringType(), True),
+    StructField('review_keywords', StringType(), True),
     StructField('description', StringType(), True),
     StructField('road', StringType(), True),
     StructField('booking_business_id', StringType(), True),
@@ -84,7 +80,7 @@ def replace_expr_and_get_value(value):
         value = value \
             .replace("\n", "") \
             .replace("\r", "") \
-            .replace(",", " ") \
+            .replace(",", "") \
             .replace("*", "")
         return value
     else:
@@ -95,16 +91,12 @@ def check_none(value):
         return value[0]
     else:
         return None
-    
-def save_to_csv(df, name, n):
-    save_path = f'{save_root_path}/{name}'
-    df.coalesce(1).write.mode('append').option("encoding", "utf-8").csv(save_path, header=True)    
 
 
 ### create rows
 hospital_data = []
-for hospital_base, base_id in zip(hospital_bases[:50], [hospital_base.split(":")[1].strip() for hospital_base in hospital_bases[:50]]):
-    # get values    
+for hospital_base, base_id in zip(hospital_bases, [hospital_base.split(":")[1].strip() for hospital_base in hospital_bases]):
+    # get values
     id_value = get_value(data, base_id, 'id')
     name_value = get_value(data, base_id, 'name')
     review_keywords_value = get_value(data, base_id, 'reviewSettings')
@@ -129,7 +121,7 @@ for hospital_base, base_id in zip(hospital_bases[:50], [hospital_base.split(":")
     # check none
     id_value = check_none(id_value)
     name_value = check_none(name_value)
-    keyword_value = review_keywords_value[0]['keyword'] if review_keywords_value else None
+    review_keywords_value = review_keywords_value[0]['keyword'] if review_keywords_value else None
     description_value = check_none(description_value)
     road_value = check_none(road_value)
     bookingBusinessId_value = check_none(bookingBusinessId_value)
@@ -146,20 +138,19 @@ for hospital_base, base_id in zip(hospital_bases[:50], [hospital_base.split(":")
     talktalkUrl_value = check_none(talktalkUrl_value)
     keywords_value = check_none(keywords_value)
     paymentInfo_value = check_none(paymentInfo_value)
-    keyword_value = check_none(keyword_value)
     print(f"checked HospitalBase:{base_id}'s values")
     
-    # replace expressions
-    # get values
+    # Replace expressions and get values
     road_value = replace_expr_and_get_value(road_value)
     description_value = replace_expr_and_get_value(description_value)
+    review_keywords_value = None if review_keywords_value is None else review_keywords_value.replace("&", "").replace("|", "").replace("\\", "")
     print(f"replaced HospitalBase:{base_id}'s expressions")
     
     # create rows
     rows = Row(
         id=base_id,
         name=name_value,
-        keyword=keyword_value,
+        review_keywords=review_keywords_value,
         description=description_value,
         road=road_value,
         booking_business_id=bookingBusinessId_value,
@@ -188,7 +179,7 @@ df = spark.createDataFrame(hospital_data, schema=df_schema)
 hospiatal_df = df.dropDuplicates([
     "id",
     "name",
-    "keyword",
+    "review_keywords",
     "description",
     "road",
     "booking_business_id",
@@ -207,5 +198,16 @@ hospiatal_df = df.dropDuplicates([
     "payment_info"
 ])
 
-# save csv from data
+
+
+# save csv from data    
+def save_to_csv(df, name):
+    save_path = f'{save_root_path}/{name}'
+    df \
+        .coalesce(1) \
+        .write \
+        .mode('append') \
+        .option("encoding", "utf-8") \
+        .csv(save_path, header=True)    
+
 save_to_csv(hospiatal_df, "hospital_df")
