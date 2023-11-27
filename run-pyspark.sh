@@ -19,5 +19,5 @@ do
     spark-submit \
         --conf "spark.driver.bindAddress=127.0.0.1" \
         --master local[*] \
-        $SCRIPT_PATH
+        $SCRIPT_PATH > /dev/null 2>&1
 done
