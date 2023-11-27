@@ -46,7 +46,7 @@ columns = data.columns
 hospital_bases = [c for c in columns if "HospitalBase" in c]
 
 
-### create dataframe schema
+### create dataframe schema with camelcase
 df_schema = StructType([
     StructField('id', StringType(), True),
     StructField('name', StringType(), True),
@@ -149,13 +149,13 @@ for hospital_base, base_id in zip(hospital_bases[:50], [hospital_base.split(":")
     keyword_value = check_none(keyword_value)
     print(f"checked HospitalBase:{base_id}'s values")
     
-    # Replace expressions and get values
+    # replace expressions
+    # get values
     road_value = replace_expr_and_get_value(road_value)
     description_value = replace_expr_and_get_value(description_value)
     print(f"replaced HospitalBase:{base_id}'s expressions")
     
     # create rows
-    # convert camelcase to snakecase
     rows = Row(
         id=base_id,
         name=name_value,
