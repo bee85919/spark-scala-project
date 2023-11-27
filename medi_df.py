@@ -1,3 +1,4 @@
+### import libraries
 import re
 import os
 import json
@@ -7,25 +8,26 @@ from pyspark.sql.types import StructType, StructField, StringType, IntegerType, 
 from pyspark.sql.functions import explode, map_keys, col, first, get_json_object, array, to_json, struct, split, regexp_replace, trim
 
 
+### create spark session
 spark = SparkSession.builder \
     .appName("medi_test") \
     .config("spark.driver.memory", "4g") \
     .config("spark.executor.memory", "4g") \
     .getOrCreate()
-    
-    
+
+
+### set paths
 root_path = '/Users/parkjisook/Desktop/yeardream/medistream/js/json'
 json_root_path = f'{root_path}/naverplace_meta'
 save_root_path = f'{root_path}/output'
 text_root_path = f'{root_path}/test.txt'
 
 
+### read data
 def read_text():
     with open(text_root_path, 'r') as t: 
-        l = t.readlines()
-        
-    n = l.pop(0).strip()
-    
+        l = t.readlines()        
+    n = l.pop(0).strip()    
     with open(text_root_path, 'w') as t: 
         t.writelines(l)
     return n
@@ -39,9 +41,12 @@ n = read_text()
 data = read_json(n)
 
 
+### columns
 columns = data.columns
 hospital_bases = [c for c in columns if "HospitalBase" in c]
 
+
+### create dataframe schema
 df_schema = StructType([
     StructField('id', StringType(), True),
     StructField('name', StringType(), True),
@@ -66,6 +71,7 @@ df_schema = StructType([
 df = spark.createDataFrame([], df_schema)
 
 
+### functions
 def get_value(data, base_id, key):
     column_key = f'HospitalBase:{base_id}.{key}'
     column = data.select(column_key)
@@ -84,17 +90,25 @@ def replace_expr_and_get_value(value):
     else:
         return None
     
+def check_none(value):
+    if value:
+        return value[0]
+    else:
+        return None
+    
 def save_to_csv(df, name, n):
     save_path = f'{save_root_path}/{name}'
-    df.coalesce(1).write.mode('append').option("encoding", "utf-8").csv(save_path, header=True)
+    df.coalesce(1).write.mode('append').option("encoding", "utf-8").csv(save_path, header=True)    
 
 
+### create rows
 hospital_data = []
 for hospital_base, base_id in zip(hospital_bases[:50], [hospital_base.split(":")[1].strip() for hospital_base in hospital_bases[:50]]):
-    # Get Values
+    # get values    
     id_value = get_value(data, base_id, 'id')
     name_value = get_value(data, base_id, 'name')
-    review_settings_value = get_value(data, base_id, 'review_settings')
+    review_settings_value = get_value(data, base_id, 'reviewSettings')
+    review_keywords_value = get_value(review_settings_value, base_id, 'keyword')
     description_value = get_value(data, base_id, 'description')
     road_value = get_value(data, base_id, 'road')
     bookingBusinessId_value = get_value(data, base_id, 'bookingBusinessId')
@@ -112,33 +126,35 @@ for hospital_base, base_id in zip(hospital_bases[:50], [hospital_base.split(":")
     keywords_value = get_value(data, base_id, 'keywords')
     paymentInfo_value = get_value(data, base_id, 'paymentInfo')
 
-    # Check None
-    id_value = id_value[0] if id_value else None
-    name_value = name_value[0] if name_value else None
-    keyword_value = review_settings_value[0]['keyword'] if review_settings_value else None
-    description_value = description_value[0] if description_value else None
-    road_value = road_value[0] if road_value else None
-    bookingBusinessId_value = bookingBusinessId_value[0] if bookingBusinessId_value else None
-    bookingDisplayName_value = bookingDisplayName_value[0] if bookingDisplayName_value else None
-    category_value = category_value[0] if category_value else None
-    categoryCode_value = categoryCode_value[0] if categoryCode_value else None
-    categoryCodeList_value = categoryCodeList_value[0] if categoryCodeList_value else None
-    categoryCount_value = categoryCount_value[0] if categoryCount_value else None
-    rcode_value = rcode_value[0] if rcode_value else None
-    virtualPhone_value = virtualPhone_value[0] if virtualPhone_value else None
-    phone_value = phone_value[0] if phone_value else None
-    naverBookingUrl_value = naverBookingUrl_value[0] if naverBookingUrl_value else None
-    conveniences_value = conveniences_value[0] if conveniences_value else None
-    talktalkUrl_value = talktalkUrl_value[0] if talktalkUrl_value else None
-    keywords_value = keywords_value[0] if keywords_value else None
-    paymentInfo_value = paymentInfo_value[0] if paymentInfo_value else None
-    keyword_value = keyword_value if keyword_value is not None else None
+    # check none
+    id_value = check_none(id_value)
+    name_value = check_none(name_value)
+    keyword_value = check_none(review_keywords_value)
+    # keyword_value = review_settings_value[0]['keyword'] if review_settings_value else None
+    description_value = check_none(description_value)
+    road_value = check_none(road_value)
+    bookingBusinessId_value = check_none(bookingBusinessId_value)
+    bookingDisplayName_value = check_none(bookingDisplayName_value)
+    category_value = check_none(category_value)
+    categoryCode_value = check_none(categoryCode_value)
+    categoryCodeList_value = check_none(categoryCodeList_value)
+    categoryCount_value = check_none(categoryCount_value)
+    rcode_value = check_none(rcode_value)
+    virtualPhone_value = check_none(virtualPhone_value)
+    phone_value = check_none(phone_value)
+    naverBookingUrl_value = check_none(naverBookingUrl_value)
+    conveniences_value = check_none(conveniences_value)
+    talktalkUrl_value = check_none(talktalkUrl_value)
+    keywords_value = check_none(keywords_value)
+    paymentInfo_value = check_none(paymentInfo_value)
+    keyword_value = check_none(keyword_value)
     
     # Replace expressions and get values
     road_value = replace_expr_and_get_value(road_value)
     description_value = replace_expr_and_get_value(description_value)
     
     # create rows
+    # convert camelcase to snakecase
     rows = Row(
         id=base_id,
         name=name_value,
@@ -161,12 +177,13 @@ for hospital_base, base_id in zip(hospital_bases[:50], [hospital_base.split(":")
         payment_info=paymentInfo_value
     )
     hospital_data.append(rows)
-    
+
+# create dataframe from list
 df = spark.createDataFrame(hospital_data, schema=df_schema)
 
 # drop duplications
 # select columns
-hospiata_data = df.dropDuplicates([
+hospiatal_df = df.dropDuplicates([
     "id",
     "name",
     "keyword",
@@ -188,4 +205,5 @@ hospiata_data = df.dropDuplicates([
     "payment_info"
 ])
 
-save_to_csv(hospiata_data, "hospital_datas")
+# save csv from data
+save_to_csv(hospiatal_df, "hospital_df")
