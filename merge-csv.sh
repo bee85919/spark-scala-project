@@ -1,0 +1,7 @@
+unset PYSPARK_DRIVER_PYTHON
+unset PYSPARK_DRIVER_PYTHON_OPTS
+
+
+SCRIPT_PATH="merge-csv.py"
+spark-submit \
+    $SCRIPT_PATH
