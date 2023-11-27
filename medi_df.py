@@ -7,8 +7,6 @@ from pyspark.sql.functions import col, split, regexp_replace, when, length
 ### create spark session
 spark = SparkSession.builder \
     .appName("medi_test") \
-    .config("spark.driver.memory", "4g") \
-    .config("spark.executor.memory", "4g") \
     .getOrCreate()
 
 
@@ -110,6 +108,30 @@ def get_lon_lat_values(ref_value):
     else:
         return None
 
+def create_boolean_column(df, target_column, create_column, value = None):
+    if value is not None:
+        cond = col(target_column).isNotNull() & col(target_column).contains(value)
+    else:
+        cond = col(target_column).isNotNull() & (col(target_column) != "")
+    df = df.withColumn(create_column, when(cond, True).otherwise(False))
+    return df
+
+def expand_column(df, column, max_num):
+    create_array = f'{column}_array'
+    df = df.withColumn(create_array, split(col(column), ','))
+    for i in range(max_num):
+        df = df.withColumn(f'{column}_{i+1}', col(create_array)[i])
+    return df
+
+def replace_expr_in_keyword_columns(df):
+    for i in range(1, 6):
+        keyword_column = f'keywords_{i}'
+        df = df.withColumn(
+            keyword_column, 
+            when(col(keyword_column).isNotNull(),
+                 regexp_replace(col(keyword_column), "[\[\]]", ""))
+        )
+    return df 
 
 ### create rows
 hospital_data = []
@@ -202,7 +224,6 @@ for hospital_base, base_id in zip(hospital_bases, [hospital_base.split(":")[1].s
 df = spark.createDataFrame(hospital_data, schema=df_schema)
 
 # deduplicate
-# select columns
 df = df.dropDuplicates([
     "id",
     "name",
@@ -224,35 +245,9 @@ df = df.dropDuplicates([
     "road_address",
     "keywords",
     "payment_info",
-    "zero_pay",
     "lon",
     "lat"
 ])
-
-def create_boolean_column(df, target_column, create_column, value = None):
-    if value is not None:
-        cond = col(target_column).isNotNull() & col(target_column).contains(value)
-    else:
-        cond = col(target_column).isNotNull() & col(target_column) != ""
-    df = df.withColumn(create_column, when(cond, True).otherwise(False))
-    return df
-
-def expand_column(df, column, max_num):
-    create_array = f'{column}_array'
-    df = df.withColumn(create_array, split(col(column), ','))
-    for i in range(max_num):
-        df = df.withColumn(f'{column}_{i+1}', col(create_array)[i])
-    return df
-
-def replace_expr_in_keyword_columns(df):
-    for i in range(1, 6):
-        keyword_column = f'keywords_{i}'
-        df = df.withColumn(
-            keyword_column, 
-            when(col(keyword_column).isNotNull(),
-                 regexp_replace(col(keyword_column), "[\[\]]", ""))
-        )
-    return df      
 
 df = df.withColumn('description_length', length('description'))
 df = create_boolean_column(df, 'virtual_phone', 'is_virtual_phone')
@@ -263,7 +258,7 @@ df = replace_expr_in_keyword_columns(df)
 hospital_df=df.select(
     "id",
     "name",
-    "keyword",
+    "review_keywords",
     "description",
     "description_length",
     "road",
@@ -281,7 +276,6 @@ hospital_df=df.select(
     "conveniences",
     "talktalk_url",
     "road_address",
-    "keywords",
     "keywords_1",
     "keywords_2",
     "keywords_3",
@@ -293,7 +287,7 @@ hospital_df=df.select(
     "lat"
 )
 
-# save csv from data    
+### save csv from data    
 def save_to_csv(df, name):
     save_path = f'{save_root_path}/{name}'
     df \
