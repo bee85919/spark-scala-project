@@ -53,20 +53,20 @@ df_schema = StructType([
     StructField('keyword', StringType(), True),
     StructField('description', StringType(), True),
     StructField('road', StringType(), True),
-    StructField('bookingBusinessId', StringType(), True),
-    StructField('bookingDisplayName', StringType(), True),
+    StructField('booking_business_id', StringType(), True),
+    StructField('booking_display_name', StringType(), True),
     StructField('category', StringType(), True),
-    StructField('categoryCode', StringType(), True),
-    StructField('categoryCodeList', StringType(), True),
-    StructField('categoryCount', StringType(), True),
+    StructField('category_code', StringType(), True),
+    StructField('category_code_list', StringType(), True),
+    StructField('category_count', StringType(), True),
     StructField('rcode', StringType(), True),
-    StructField('virtualPhone', StringType(), True),
+    StructField('virtual_phone', StringType(), True),
     StructField('phone', StringType(), True),
-    StructField('naverBookingUrl', StringType(), True),
+    StructField('naver_booking_url', StringType(), True),
     StructField('conveniences', StringType(), True),
-    StructField('talktalkUrl', StringType(), True),
+    StructField('talktalk_url', StringType(), True),
     StructField('keywords', StringType(), True),
-    StructField('paymentInfo', StringType(), True)
+    StructField('payment_info', StringType(), True)
 ])
 df = spark.createDataFrame([], df_schema)
 
@@ -107,8 +107,7 @@ for hospital_base, base_id in zip(hospital_bases[:50], [hospital_base.split(":")
     # get values    
     id_value = get_value(data, base_id, 'id')
     name_value = get_value(data, base_id, 'name')
-    review_settings_value = get_value(data, base_id, 'reviewSettings')
-    review_keywords_value = get_value(review_settings_value, base_id, 'keyword')
+    review_keywords_value = get_value(data, base_id, 'reviewSettings')
     description_value = get_value(data, base_id, 'description')
     road_value = get_value(data, base_id, 'road')
     bookingBusinessId_value = get_value(data, base_id, 'bookingBusinessId')
@@ -125,12 +124,12 @@ for hospital_base, base_id in zip(hospital_bases[:50], [hospital_base.split(":")
     talktalkUrl_value = get_value(data, base_id, 'talktalkUrl')
     keywords_value = get_value(data, base_id, 'keywords')
     paymentInfo_value = get_value(data, base_id, 'paymentInfo')
+    print(f"got HospitalBase:{base_id}'s values")
 
     # check none
     id_value = check_none(id_value)
     name_value = check_none(name_value)
-    keyword_value = check_none(review_keywords_value)
-    # keyword_value = review_settings_value[0]['keyword'] if review_settings_value else None
+    keyword_value = review_keywords_value[0]['keyword'] if review_keywords_value else None
     description_value = check_none(description_value)
     road_value = check_none(road_value)
     bookingBusinessId_value = check_none(bookingBusinessId_value)
@@ -148,10 +147,12 @@ for hospital_base, base_id in zip(hospital_bases[:50], [hospital_base.split(":")
     keywords_value = check_none(keywords_value)
     paymentInfo_value = check_none(paymentInfo_value)
     keyword_value = check_none(keyword_value)
+    print(f"checked HospitalBase:{base_id}'s values")
     
     # Replace expressions and get values
     road_value = replace_expr_and_get_value(road_value)
     description_value = replace_expr_and_get_value(description_value)
+    print(f"replaced HospitalBase:{base_id}'s expressions")
     
     # create rows
     # convert camelcase to snakecase
@@ -177,11 +178,12 @@ for hospital_base, base_id in zip(hospital_bases[:50], [hospital_base.split(":")
         payment_info=paymentInfo_value
     )
     hospital_data.append(rows)
+    print(f"appended HospitalBase:{base_id}'s rows\n")
 
 # create dataframe from list
 df = spark.createDataFrame(hospital_data, schema=df_schema)
 
-# drop duplications
+# deduplicate
 # select columns
 hospiatal_df = df.dropDuplicates([
     "id",
