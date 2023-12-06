@@ -12,6 +12,7 @@ save_path = f"{root_path}/result"
 
 ###
 df = spark.read.option("header", "true").option("encoding", "UTF-8").csv(csvs_path + "/*.csv")
+df = df.dropDuplicates()
 df.coalesce(1).write.option("header", "true").option("encoding", "UTF-8").csv(save_path)
 
 ###
