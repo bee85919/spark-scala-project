@@ -1,6 +1,6 @@
 ### !/bin/bash
 FILE_PATH="./queue.txt"
-QUEUEMANAGER_PATH="queue-manager.py"
+QUEUEMANAGER_PATH="./queue-manager.py"
 PREPROCESSOR_PATH="./pyspark-preprocessor.py"
 MERGEMANAGER_PATH="./merge-manager.py"
 
